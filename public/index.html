@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+<div class="card">
+<h2>Login</h2>
+<input id="u" placeholder="Username">
+<input id="p" type="password" placeholder="Password">
+<button onclick="login()">Login</button>
+</div>
+
+<div class="card">
+<h2>Register</h2>
+<input id="ru" placeholder="Username">
+<input id="rp" type="password" placeholder="Password">
+<button onclick="register()">Register</button>
+</div>
+</div>
+
+<script>
+async function login(){
+    let res = await fetch("/login", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({username:u.value,password:p.value})
+    });
+    let t = await res.text();
+    if(t==="OK") location="dashboard.html";
+    else alert(t);
+}
+
+async function register(){
+    await fetch("/register", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({username:ru.value,password:rp.value})
+    });
+    alert("Registrovan");
+}
+</script>
+
+</body>
+</html>
