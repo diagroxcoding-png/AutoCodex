@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="header">AutoCodex</div>
+
+<div class="container">
+
+<div class="card">
+<h3>Pretraga kodova</h3>
+<input id="s" placeholder="P0300..." oninput="search()">
+<div id="r"></div>
+</div>
+
+<div class="card">
+<h3>Premium</h3>
+<a href="https://www.paypal.com/paypalme/TVOJ_LINK">
+<button>Kupi Premium</button>
+</a>
+</div>
+
+</div>
+
+<script>
+async function search(){
+    let res = await fetch("/codes?q="+s.value);
+    let data = await res.json();
+
+    r.innerHTML = data.map(c => `
+    <div class="code">
+    <b>${c.code}</b><br>${c.description}
+    </div>`).join("");
+}
+</script>
+
+</body>
+</html>
