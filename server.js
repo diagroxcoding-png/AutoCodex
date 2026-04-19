@@ -1,101 +1,89 @@
 const express = require("express");
-const sqlite3 = require("sqlite3").verbose();
 const bcrypt = require("bcrypt");
-const session = require("express-session");
-const bodyParser = require("body-parser");
+const jwt = require("jsonwebtoken");
+const cors = require("cors");
+const { createClient } = require("@supabase/supabase-js");
+
+require("dotenv").config();
 
 const app = express();
+app.use(express.json());
+app.use(cors());
 
-app.use(bodyParser.json());
-app.use(express.static("public"));
+const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_KEY
+);
 
-app.use(session({
-    secret: "secret123",
-    resave: false,
-    saveUninitialized: true
-}));
-
-// ✅ DATABASE (FIX ZA RENDER)
-const db = new sqlite3.Database("database.db");
-
-// USERS
-db.run(`CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT,
-    password TEXT,
-    premium INTEGER DEFAULT 0
-)`);
-
-// CODES
-db.run(`CREATE TABLE IF NOT EXISTS codes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    code TEXT,
-    description TEXT
-)`);
-
-// 🔥 AUTO INSERT KODOVA
-db.get("SELECT COUNT(*) as count FROM codes", (err, row) => {
-    if (row.count === 0) {
-        db.run(`INSERT INTO codes (code, description) VALUES
-        ('P0001','Regulator goriva - kvar'),
-        ('P0010','Bregasta osovina - kvar'),
-        ('P0100','MAF senzor - kvar'),
-        ('P0171','Smjesa siromašna'),
-        ('P0172','Smjesa bogata'),
-        ('P0300','Misfire (nasumično)'),
-        ('P0420','Katalizator loš'),
-        ('P0500','Senzor brzine - kvar')
-        `);
-    }
-});
-
-// REGISTER
+// 🔐 REGISTER
 app.post("/register", async (req, res) => {
     const { username, password } = req.body;
+
     const hash = await bcrypt.hash(password, 10);
 
-    db.run("INSERT INTO users (username, password) VALUES (?, ?)",
-    [username, hash], () => res.send("OK"));
+    const { error } = await supabase
+        .from("users")
+        .insert([{ username, password: hash, premium: false }]);
+
+    if (error) return res.send(error.message);
+
+    res.send("OK");
 });
 
-// LOGIN
-app.post("/login", (req, res) => {
+// 🔐 LOGIN
+app.post("/login", async (req, res) => {
     const { username, password } = req.body;
 
-    db.get("SELECT * FROM users WHERE username=?", [username], async (err, user) => {
-        if (!user) return res.send("Nema korisnika");
+    const { data } = await supabase
+        .from("users")
+        .select("*")
+        .eq("username", username)
+        .single();
 
-        const match = await bcrypt.compare(password, user.password);
-        if (match) {
-            req.session.user = user;
-            res.send("OK");
-        } else {
-            res.send("Pogrešna šifra");
-        }
-    });
+    if (!data) return res.send("Nema korisnika");
+
+    const match = await bcrypt.compare(password, data.password);
+
+    if (!match) return res.send("Pogrešna šifra");
+
+    const token = jwt.sign(
+        { id: data.id, username: data.username },
+        process.env.JWT_SECRET
+    );
+
+    res.json({ token });
 });
 
-// GET CODES (FREE/PREMIUM)
-app.get("/codes", (req, res) => {
-    if (!req.session.user) return res.sendStatus(401);
+// 🔑 MIDDLEWARE
+function auth(req, res, next) {
+    const token = req.headers.authorization;
 
-    db.get("SELECT premium FROM users WHERE id=?", [req.session.user.id], (err, user) => {
-        if (!user?.premium) {
-            db.all("SELECT * FROM codes LIMIT 3", (e, rows) => res.json(rows));
-        } else {
-            db.all("SELECT * FROM codes", (e, rows) => res.json(rows));
-        }
-    });
+    if (!token) return res.sendStatus(401);
+
+    try {
+        req.user = jwt.verify(token, process.env.JWT_SECRET);
+        next();
+    } catch {
+        res.sendStatus(401);
+    }
+}
+
+// 🚗 OBD KODOVI
+app.get("/codes", auth, async (req, res) => {
+    const { data } = await supabase.from("codes").select("*");
+    res.json(data);
 });
 
-// ACTIVATE PREMIUM
-app.post("/activatePremium", (req, res) => {
-    const { username } = req.body;
+// 💳 PREMIUM
+app.post("/premium", auth, async (req, res) => {
+    await supabase
+        .from("users")
+        .update({ premium: true })
+        .eq("id", req.user.id);
 
-    db.run("UPDATE users SET premium=1 WHERE username=?",
-    [username], () => res.send("OK"));
+    res.send("OK");
 });
 
-// ✅ RENDER PORT FIX
+// 🔥 START
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("Server radi na " + PORT));
