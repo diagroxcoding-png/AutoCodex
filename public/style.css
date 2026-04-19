@@ -1,0 +1,48 @@
+body {
+    margin:0;
+    background:#0d0d0d;
+    color:white;
+    font-family:Arial;
+}
+
+.header {
+    padding:15px;
+    font-size:20px;
+    background:#111;
+}
+
+.container {
+    padding:15px;
+}
+
+.card {
+    background:#161616;
+    padding:15px;
+    border-radius:10px;
+    margin-bottom:15px;
+}
+
+input {
+    width:100%;
+    padding:10px;
+    margin-top:10px;
+    background:#111;
+    border:1px solid #333;
+    color:white;
+}
+
+button {
+    width:100%;
+    padding:10px;
+    margin-top:10px;
+    background:#ff3b30;
+    border:none;
+    color:white;
+}
+
+.code {
+    background:#1f1f1f;
+    padding:10px;
+    margin-top:8px;
+    border-radius:8px;
+}
